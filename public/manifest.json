@@ -1,0 +1,10 @@
+{
+  "name": "SI Agent",
+  "short_name": "SI Agent",
+  "description": "All-in-One AI Agent with code execution, research, crypto predictions, and recursive self-improvement",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#00d4ff",
+  "icons": []
+}

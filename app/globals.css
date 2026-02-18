@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 15% 4%;
+    --foreground: 240 5% 90%;
+    --card: 240 12% 7%;
+    --card-foreground: 240 5% 90%;
+    --popover: 240 12% 7%;
+    --popover-foreground: 240 5% 90%;
+    --primary: 192 100% 50%;
+    --primary-foreground: 240 15% 4%;
+    --secondary: 160 84% 39%;
+    --secondary-foreground: 240 15% 4%;
+    --muted: 240 10% 14%;
+    --muted-foreground: 240 5% 55%;
+    --accent: 240 10% 14%;
+    --accent-foreground: 192 100% 50%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 10% 14%;
+    --input: 240 10% 14%;
+    --ring: 192 100% 50%;
+    --radius: 0.5rem;
+
+    --sidebar: 240 14% 5%;
+    --sidebar-foreground: 240 5% 65%;
+    --sidebar-border: 240 10% 12%;
+    --sidebar-accent: 240 10% 10%;
+
+    --terminal-cyan: 192 100% 50%;
+    --terminal-green: 160 84% 39%;
+    --terminal-amber: 38 92% 50%;
+    --terminal-red: 0 72% 51%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(240 14% 5%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(240 10% 20%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 10% 30%);
+}
+
+/* Code block styling */
+.code-block pre {
+  @apply rounded-md bg-card p-4 overflow-x-auto font-mono text-sm;
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Markdown prose */
+.prose-terminal {
+  @apply text-foreground leading-relaxed;
+}
+.prose-terminal h1,
+.prose-terminal h2,
+.prose-terminal h3 {
+  @apply text-foreground font-sans font-semibold;
+}
+.prose-terminal p {
+  @apply mb-3;
+}
+.prose-terminal code {
+  @apply font-mono text-terminal-cyan bg-muted px-1.5 py-0.5 rounded-sm text-sm;
+}
+.prose-terminal pre code {
+  @apply bg-transparent p-0;
+}
+.prose-terminal a {
+  @apply text-terminal-cyan underline underline-offset-2;
+}
+.prose-terminal ul, .prose-terminal ol {
+  @apply ml-4 mb-3;
+}
+.prose-terminal li {
+  @apply mb-1;
+}
+.prose-terminal blockquote {
+  @apply border-l-2 border-terminal-cyan pl-4 italic text-muted-foreground;
+}
+.prose-terminal table {
+  @apply w-full border-collapse mb-3;
+}
+.prose-terminal th, .prose-terminal td {
+  @apply border border-border px-3 py-2 text-sm;
+}
+.prose-terminal th {
+  @apply bg-muted font-semibold;
+}
