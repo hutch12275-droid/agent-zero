@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useAppStore } from "@/lib/store";
@@ -49,7 +49,7 @@ export function ChatInterface() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto">
         {messages.length === 0 ? (
-          <EmptyState agentMode={agentMode} />
+          <EmptyState agentMode={agentMode} onSuggestionClick={handleSend} />
         ) : (
           <div className="flex flex-col gap-4 px-4 py-4 max-w-3xl mx-auto">
             {messages.map((msg) => (
@@ -81,7 +81,13 @@ export function ChatInterface() {
   );
 }
 
-function EmptyState({ agentMode }: { agentMode: string }) {
+function EmptyState({ 
+  agentMode, 
+  onSuggestionClick 
+}: { 
+  agentMode: string; 
+  onSuggestionClick: (text: string) => void;
+}) {
   const suggestions: Record<string, string[]> = {
     chat: [
       "Explain quantum computing in simple terms",
@@ -140,6 +146,7 @@ function EmptyState({ agentMode }: { agentMode: string }) {
         {(suggestions[agentMode] || suggestions.chat).map((s, i) => (
           <button
             key={i}
+            onClick={() => onSuggestionClick(s)}
             className="rounded-lg border border-border bg-card px-4 py-3 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors min-h-[44px]"
           >
             {s}
