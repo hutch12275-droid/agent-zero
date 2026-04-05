@@ -10,31 +10,26 @@ import { z } from "zod";
 
 export const maxDuration = 60;
 
-function getOpenRouterProvider() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+function getHuggingFaceProvider() {
+  const apiKey = process.env.HF_TOKEN || process.env.HUGGINGFACE_API_KEY;
   if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY is required");
+    throw new Error("HF_TOKEN required. Get free token: huggingface.co/settings/tokens");
   }
   return createOpenAI({
-    baseURL: "https://openrouter.ai/api/v1",
+    baseURL: "https://api-inference.huggingface.co/v1",
     apiKey,
-    headers: {
-      "HTTP-Referer": "https://si-agent.vercel.app",
-      "X-Title": "SI Agent",
-    },
   });
 }
 
 const agentTools = {
   execute_code: tool({
     description:
-      "Execute JavaScript code in a sandboxed environment. Returns the console output. Use for calculations, data processing, and demonstrations.",
+      "Execute JavaScript code in a sandboxed environment. Returns the console output.",
     inputSchema: z.object({
       code: z.string().describe("JavaScript code to execute"),
     }),
     execute: async ({ code }) => {
       try {
-        // Safe eval of basic JS expressions
         const logs: string[] = [];
         const mockConsole = {
           log: (...args: unknown[]) => logs.push(args.map(String).join(" ")),
@@ -43,7 +38,7 @@ const agentTools = {
         };
         const fn = new Function("console", "Math", "JSON", "Date", code);
         fn(mockConsole, Math, JSON, Date);
-        return logs.length > 0 ? logs.join("\n") : "Code executed successfully (no output)";
+        return logs.length > 0 ? logs.join("\n") : "Code executed (no output)";
       } catch (e) {
         return `Error: ${e instanceof Error ? e.message : "Unknown error"}`;
       }
@@ -51,19 +46,17 @@ const agentTools = {
   }),
 
   web_search: tool({
-    description:
-      "Search the web for current information using DuckDuckGo. Returns search results with titles, URLs, and snippets.",
+    description: "Search the web for current information using DuckDuckGo.",
     inputSchema: z.object({
       query: z.string().describe("Search query"),
     }),
     execute: async ({ query }) => {
       try {
         const res = await fetch(
-          `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`
+          `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1`
         );
         const data = await res.json();
         const results: string[] = [];
-
         if (data.Abstract) {
           results.push(`Summary: ${data.Abstract}\nSource: ${data.AbstractURL}`);
         }
@@ -74,22 +67,17 @@ const agentTools = {
             }
           }
         }
-        return results.length > 0
-          ? results.join("\n\n")
-          : `No results found for "${query}". Try rephrasing.`;
+        return results.length > 0 ? results.join("\n\n") : `No results for "${query}"`;
       } catch {
-        return "Search temporarily unavailable.";
+        return "Search unavailable.";
       }
     },
   }),
 
   crypto_analyze: tool({
-    description:
-      "Fetch real-time cryptocurrency market data including price, volume, market cap, and 24h change. Use for crypto analysis and predictions.",
+    description: "Get real-time cryptocurrency market data from CoinGecko.",
     inputSchema: z.object({
-      symbol: z
-        .string()
-        .describe("Cryptocurrency ID (e.g., bitcoin, ethereum, solana)"),
+      symbol: z.string().describe("Crypto ID (e.g., bitcoin, ethereum)"),
     }),
     execute: async ({ symbol }) => {
       try {
@@ -97,83 +85,68 @@ const agentTools = {
           `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(symbol.toLowerCase())}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`,
           { signal: AbortSignal.timeout(10000) }
         );
-        if (!res.ok) throw new Error("CoinGecko API error");
+        if (!res.ok) throw new Error("API error");
         const data = await res.json();
         const coin = data[symbol.toLowerCase()];
-        if (!coin) return `Coin "${symbol}" not found. Try: bitcoin, ethereum, solana, cardano, etc.`;
-        return JSON.stringify(
-          {
-            symbol: symbol.toLowerCase(),
-            price_usd: coin.usd,
-            change_24h_percent: coin.usd_24h_change?.toFixed(2) + "%",
-            volume_24h: "$" + (coin.usd_24h_vol || 0).toLocaleString(),
-            market_cap: "$" + (coin.usd_market_cap || 0).toLocaleString(),
-          },
-          null,
-          2
-        );
+        if (!coin) return `Coin "${symbol}" not found.`;
+        return JSON.stringify({
+          symbol: symbol.toLowerCase(),
+          price_usd: coin.usd,
+          change_24h: coin.usd_24h_change?.toFixed(2) + "%",
+          volume_24h: "$" + (coin.usd_24h_vol || 0).toLocaleString(),
+          market_cap: "$" + (coin.usd_market_cap || 0).toLocaleString(),
+        }, null, 2);
       } catch {
-        return `Failed to fetch data for "${symbol}". CoinGecko may be rate-limited.`;
+        return `Failed to fetch "${symbol}".`;
       }
     },
   }),
 
   memory_save: tool({
-    description:
-      "Save important information, successful patterns, or key findings to long-term memory for future reference.",
+    description: "Save important information to long-term memory.",
     inputSchema: z.object({
-      content: z.string().describe("The information to remember"),
+      content: z.string().describe("Information to remember"),
       tags: z.array(z.string()).describe("Tags for categorization"),
-      category: z
-        .enum(["solution", "knowledge", "error", "pattern", "general"])
-        .describe("Memory category"),
+      category: z.enum(["solution", "knowledge", "error", "pattern", "general"]),
     }),
     execute: async ({ content, tags, category }) => {
-      return `[MEMORY SAVED] Category: ${category} | Tags: ${tags.join(", ")} | Content: "${content.slice(0, 120)}..."`;
+      return `[MEMORY SAVED] ${category} | Tags: ${tags.join(", ")} | "${content.slice(0, 100)}..."`;
     },
   }),
 
   memory_query: tool({
-    description:
-      "Search long-term memory for relevant past information, patterns, and solutions.",
+    description: "Search long-term memory for relevant information.",
     inputSchema: z.object({
       query: z.string().describe("Search query for memory"),
     }),
     execute: async ({ query }) => {
-      return `[MEMORY QUERY] Searching for: "${query}" - Memory system active. Past patterns will be incorporated into responses.`;
+      return `[MEMORY QUERY] Searching: "${query}" - Memory active.`;
     },
   }),
 };
 
 export async function POST(req: Request) {
-  const {
-    messages,
-    modelId,
-    systemPrompt,
-  }: {
+  const { messages, modelId, systemPrompt }: {
     messages: UIMessage[];
     modelId?: string;
     systemPrompt?: string;
   } = await req.json();
 
-  const openrouter = getOpenRouterProvider();
+  const hf = getHuggingFaceProvider();
 
-  // Map model IDs to OpenRouter model strings
   const modelMap: Record<string, string> = {
-    "qwen-2.5-72b": "qwen/qwen-2.5-72b-instruct:free",
-    "glm-4-32b": "thudm/glm-z1-32b:free",
-    "qwen-2.5-coder": "qwen/qwen-2.5-coder-32b-instruct:free",
-    "deepseek-r1": "deepseek/deepseek-r1-0528:free",
-    "qwen3-235b": "qwen/qwen3-235b-a22b:free",
+    "qwen-2.5-72b": "Qwen/Qwen2.5-72B-Instruct",
+    "glm-4-9b": "THUDM/glm-4-9b-chat",
+    "qwen-2.5-coder": "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "deepseek-r1": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "mistral-nemo": "mistralai/Mistral-Nemo-Instruct-2407",
   };
 
   const selectedModel = modelMap[modelId || "qwen-2.5-72b"] || modelMap["qwen-2.5-72b"];
 
   const result = streamText({
-    model: openrouter(selectedModel),
-    system:
-      systemPrompt ||
-      `You are SI Agent, an advanced recursive self-improving AI assistant. You combine the capabilities of Agent Zero (autonomous agent framework) and MoltBot (multi-tool assistant). You can execute code, search the web, analyze crypto markets, and learn from every interaction. Always be helpful, accurate, and proactive. When you use tools, explain what you're doing and share your findings clearly.`,
+    model: hf(selectedModel),
+    system: systemPrompt || `You are SI Agent, an advanced recursive self-improving AI. You combine Agent Zero and MoltBot capabilities: code execution, web search, crypto analysis, and learning from interactions. Be helpful, accurate, and proactive.`,
     messages: await convertToModelMessages(messages),
     tools: agentTools,
     stopWhen: stepCountIs(8),
